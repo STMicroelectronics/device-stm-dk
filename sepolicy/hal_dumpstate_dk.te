@@ -1,0 +1,30 @@
+type hal_dumpstate_dk, domain;
+hal_server_domain(hal_dumpstate_dk, hal_dumpstate)
+
+type hal_dumpstate_dk_exec, exec_type, file_type, vendor_file_type;
+init_daemon_domain(hal_dumpstate_dk)
+
+binder_use(hal_dumpstate_dk)
+
+allow hal_dumpstate_dk dumpstate:fifo_file write;
+allow hal_dumpstate_dk vendor_toolbox_exec:file execute_no_trans;
+allow hal_dumpstate_dk vendor_shell_exec:file execute_no_trans;
+
+allow hal_dumpstate_dk proc_meminfo:file r_file_perms;
+allow hal_dumpstate_dk proc_iomem:file r_file_perms;
+
+allow hal_dumpstate_dk shell_data_file:file getattr;
+
+allow hal_dumpstate_dk sysfs_thermal:dir r_dir_perms;
+allow hal_dumpstate_dk sysfs_thermal:file r_file_perms;
+allow hal_dumpstate_dk sysfs_thermal:lnk_file r_file_perms;
+
+get_prop(hal_dumpstate_dk, vendor_logging_prop);
+get_prop(hal_dumpstate_dk, apk_verity_prop);
+
+# waiting for vendor getprop cleaning
+dontaudit hal_dumpstate_dk {
+  apexd_prop
+  aac_drc_prop
+  ab_update_gki_prop
+}:file { getattr map open };

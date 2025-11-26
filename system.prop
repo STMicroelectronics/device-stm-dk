@@ -1,0 +1,5 @@
+#
+# system.prop for stm32mp2
+#
+wlan.driver.status=ok
+qemu.hw.mainkeys=0

@@ -1,0 +1,111 @@
+
+license {
+    name: "firmware_cypress_license",
+    license_text: ["LICENCE"],
+}
+
+// install License file on device
+prebuilt_firmware {
+    name: "LICENCE.cypress",
+    licenses: ["firmware_cypress_license"],
+    src: "LICENCE",
+    sub_dir: "brcm",
+    vendor: true,
+}
+
+// 43430
+
+// install calibration file
+
+// disable Wakeup on WLAN
+genrule {
+    name: "cyfmac43430_calibration",
+    srcs: ["cyw-fmac-nvram/cyfmac43430-sdio.1DX.txt"],
+    out: ["cyfmac43430_calibration.txt"],
+    cmd: "sed -E 's/muxenab=(.*)$$/#muxenab=\\1/g' $(in) > $(out)",
+}
+
+prebuilt_firmware {
+    name: "brcmfmac43430-sdio.txt",
+    licenses: ["firmware_cypress_license"],
+    src: ":cyfmac43430_calibration",
+    sub_dir: "brcm",
+    vendor: true,
+}
+
+// install firmware binaries
+
+prebuilt_firmware {
+    name: "brcmfmac43430-sdio.bin",
+    licenses: ["firmware_cypress_license"],
+    src: "cyw-fmac-fw/cyfmac43430-sdio.bin",
+    sub_dir: "brcm",
+    vendor: true,
+}
+
+prebuilt_firmware {
+    name: "brcmfmac43430-sdio.clm_blob",
+    licenses: ["firmware_cypress_license"],
+    src: "cyw-fmac-fw/cyfmac43430-sdio.1DX.clm_blob",
+    sub_dir: "brcm",
+    vendor: true,
+}
+
+// install bluetooth patch
+
+prebuilt_firmware {
+    name: "BCM43430A1.hcd",
+    licenses: ["firmware_cypress_license"],
+    src: "cyw-bt-patch/BCM43430A1_001.002.009.0159.0528.1DX.hcd",
+    sub_dir: "brcm",
+    vendor: true,
+}
+
+// 43439
+
+// install calibration file
+
+// disable Wakeup on WLAN
+genrule {
+    name: "cyfmac43439_calibration",
+    srcs: ["cyw-fmac-nvram/cyfmac43439-sdio.1YN.txt"],
+    out: ["cyfmac43439_calibration.txt"],
+    cmd: "sed -E 's/muxenab=(.*)$$/#muxenab=\\1/g' $(in) > $(out)",
+}
+
+prebuilt_firmware {
+    name: "brcmfmac43439-sdio.txt",
+    licenses: ["firmware_cypress_license"],
+    src: ":cyfmac43439_calibration",
+    sub_dir: "brcm",
+    vendor: true,
+}
+
+// install firmware binaries
+
+prebuilt_firmware {
+    name: "brcmfmac43439-sdio.bin",
+    licenses: ["firmware_cypress_license"],
+    src: "cyw-fmac-fw/cyfmac43439-sdio.bin",
+    sub_dir: "brcm",
+    vendor: true,
+}
+
+prebuilt_firmware {
+    name: "brcmfmac43439-sdio.clm_blob",
+    licenses: ["firmware_cypress_license"],
+    src: "cyw-fmac-fw/cyfmac43439-sdio.1YN.clm_blob",
+    sub_dir: "brcm",
+    vendor: true,
+}
+
+// install bluetooth patch
+
+prebuilt_firmware {
+    name: "BCM4343A2.hcd",
+    licenses: ["firmware_cypress_license"],
+    src: "cyw-bt-patch/CYW4343A2_001.003.016.0031.0000.1YN.hcd",
+    sub_dir: "brcm",
+    symlinks: ["BCM.hcd"],
+    vendor: true,
+}

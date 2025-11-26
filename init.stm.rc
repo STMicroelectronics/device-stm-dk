@@ -1,0 +1,242 @@
+#
+# Copyright 2015 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# remind init order
+# 1. Run early-init commands.
+# 2. coldboot: Check that ueventd has populated /dev.
+# 3. Initialize property service’s internal data structures.
+# 4. Set up handler for keychords.
+# 5. Initialize the console and display startup text or image.
+# 6. Set up initial properties such as ro.serialno, ro.baseband, and ro.carrier.
+# 7. Run init commands.
+# 8. Run early-fs commands.
+# 9. Run fs commands.
+# 10. Run post-fs commands.
+# 11. Run late-fs commands.
+# 12. Run post-fs-data commands.
+# 13. Start the property service.
+# 14. Prepare to receive SIGCHLD signals.
+# 15. Make sure that the property service socket and SIGCHLD handler are ready.
+# 16. Run early-boot commands.
+# 17. Run boot commands.
+# 18. Run all property-triggered commands based on current property values.
+
+import /vendor/etc/init/hw/init.${ro.hardware}.usb.rc
+import /vendor/etc/init/hw/init.${ro.hardware}.network.rc
+import /vendor/etc/init/hw/init.${ro.hardware}.security.rc
+import /vendor/etc/init/hw/init.${ro.hardware}.camera.rc
+import /vendor/etc/init/hw/init.${ro.hardware}.copro.rc
+
+on early-init && property:ro.product.debugfs_restrictions.enabled=false
+    # debugfs mounted in case there is no restriction (not the case in user build)
+    mount debugfs debugfs /sys/kernel/debug
+    chmod 0755 /sys/kernel/debug
+
+on early-init && property:ro.debuggable=1
+    start init_prop
+
+on init
+    # ZRAM setup
+    write /sys/block/zram0/comp_algorithm lz4
+    write /proc/sys/vm/page-cluster 0
+
+    # Create a cpuset for camera-specific processes
+    mkdir /dev/cpuset/camera-daemon
+    write /dev/cpuset/camera-daemon/cpus 0-1
+    chown system system /dev/cpuset/camera-daemon
+    chown system system /dev/cpuset/camera-daemon/tasks
+    chmod 0664 /dev/cpuset/camera-daemon/tasks
+
+    # Create scheduler tuning nodes
+    mkdir /dev/cpuctl/background
+    mkdir /dev/cpuctl/foreground
+    mkdir /dev/cpuctl/top-app
+
+    chown system system /dev/cpuctl/background
+    chown system system /dev/cpuctl/background/tasks
+    chown system system /dev/cpuctl/foreground
+    chown system system /dev/cpuctl/foreground/tasks
+    chown system system /dev/cpuctl/top-app
+    chown system system /dev/cpuctl/top-app/tasks
+    chmod 0664 /dev/cpuctl/background/tasks
+    chmod 0664 /dev/cpuctl/foreground/tasks
+    chmod 0664 /dev/cpuctl/top-app/tasks
+
+    chown system system /dev/cpuctl/top-app/cpu.uclamp.min
+    chown system system /dev/cpuctl/top-app/cpu.uclamp.max
+    chown system system /dev/cpuctl/background/cpu.uclamp.min
+    chown system system /dev/cpuctl/background/cpu.uclamp.max
+    chown system system /dev/cpuctl/foreground/cpu.uclamp.min
+    chown system system /dev/cpuctl/foreground/cpu.uclamp.max
+
+    write /dev/cpuctl/top-app/cpu.uclamp.min 10
+    write /dev/cpuctl/foreground/cpu.uclamp.min 10
+    write /dev/cpuctl/background/cpu.uclamp.min 0
+    write /dev/cpuctl/background/cpu.uclamp.max 30
+
+    # Create UDS structure for base VR services
+    mkdir /dev/socket/pdx 0775 system system
+    mkdir /dev/socket/pdx/system 0775 system system
+    mkdir /dev/socket/pdx/system/buffer_hub 0775 system system
+    mkdir /dev/socket/pdx/system/performance 0775 system system
+    mkdir /dev/socket/pdx/system/vr 0775 system system
+    mkdir /dev/socket/pdx/system/vr/display 0775 system system
+    mkdir /dev/socket/pdx/system/vr/pose 0775 system system
+    mkdir /dev/socket/pdx/system/vr/sensors 0775 system system
+
+    # boot time io tuning
+    write /sys/block/mmcblk0/queue/iostats 0
+    write /sys/block/mmcblk1/queue/iostats 0
+    write /sys/block/mmcblk0/queue/read_ahead_kb 2048
+    write /sys/block/mmcblk1/queue/read_ahead_kb 2048
+    write /sys/block/mmcblk0/queue/nr_requests 256
+    write /sys/block/mmcblk1/queue/nr_requests 256
+
+    write /sys/block/dm-0/queue/read_ahead_kb 2048
+    write /sys/block/dm-1/queue/read_ahead_kb 2048
+    write /sys/block/dm-2/queue/read_ahead_kb 2048
+
+on early-fs
+    start vold
+
+on fs
+    start hwservicemanager
+    mount_all /vendor/etc/fstab.stm --early
+
+on post-fs
+    # set rlimit of lockedmem (RLIMIT_MEMLOCK) to 8 MiB to meet eBFD requirments
+    setrlimit memlock 8388608 8388608
+
+    # load panel kernel module
+#    insmod /vendor/lib/modules/panel-orisetech-otm8009a.ko
+#    insmod /vendor/lib/modules/panel-raydium-rm68200.ko
+#    insmod /vendor/lib/modules/dw-mipi-dsi.ko
+#    insmod /vendor/lib/modules/dw_mipi_dsi-stm.ko
+
+    # load gpu kernel module
+    insmod /vendor/lib/modules/galcore.ko
+
+    # load other kernel modules asynchronously
+    start init_driver
+
+    # bugreport purpose
+    chmod 0440 /proc/pagetypeinfo
+
+on late-fs
+    start bootanim
+    class_start animation
+
+    wait_for_prop hwservicemanager.ready true
+
+    # Mount RW partitions which need run fsck
+    mount_all /vendor/etc/fstab.stm --late
+
+    # watchdog daemon (started in secondary bootloader)
+    start watchdogd
+
+    # Wait the end of asynchronous kernel modules loading
+    wait_for_prop vendor.modules.ready 1
+
+    # Consider that WLAN driver has been probed
+    setprop wlan.driver.status ok
+
+on zygote-start
+    # Set indication (checked by vold) that we have finished this action
+    setprop vold.post_fs_data_done 1
+
+on boot
+    # Access to leds and backlight
+    chown system system /sys/class/leds/blue:heartbeat/brightness
+    chown system system /sys/class/leds/blue:heartbeat/trigger
+    chown system system /sys/class/leds/blue:heartbeat/max_brightness
+    chmod 0664 /sys/class/leds/blue:heartbeat/brightness
+    chmod 0664 /sys/class/leds/blue:heartbeat/trigger
+    chmod 0444 /sys/class/leds/blue:heartbeat/max_brightness
+
+    chown system system /sys/class/backlight/panel-lvds-backlight/brightness
+    chown system system /sys/class/backlight/panel-lvds-backlight/max_brightness
+    chmod 0664 /sys/class/backlight/panel-lvds-backlight/brightness
+    chmod 0444 /sys/class/backlight/panel-lvds-backlight/max_brightness
+
+    # Create NETMGR daemon socket area
+    mkdir /dev/socket/netmgr 0750 radio radio
+
+    # Access to copro firmware
+    chmod 0770 /sys/class/remoteproc/remoteproc0/firmware
+    chown system system /sys/class/remoteproc/remoteproc0/firmware
+    chmod 0770 /sys/class/remoteproc/remoteproc0/state
+    chown system system /sys/class/remoteproc/remoteproc0/state
+    chmod 0770 /sys/module/firmware_class/parameters/path
+    chown system system /sys/module/firmware_class/parameters/path
+
+    # Change CPU freq access rights (used by STPerf application)
+    chmod 0444 /sys/devices/system/cpu/cpufreq/policy0/scaling_cur_freq
+    chmod 0444 /sys/devices/system/cpu/cpufreq/policy0/scaling_available_frequencies
+
+on property:sys.boot_completed=1
+    swapon_all /vendor/etc/fstab.stm
+    write /proc/sys/vm/swappiness 100
+    write /proc/sys/vm/vfs_cache_pressure 500
+    write /proc/sys/vm/dirty_ratio 50
+
+    write /sys/block/mmcblk0/queue/iostats 1
+    write /sys/block/mmcblk1/queue/iostats 1
+    write /sys/block/mmcblk0/queue/read_ahead_kb 256
+    write /sys/block/mmcblk1/queue/read_ahead_kb 256
+    write /sys/block/mmcblk0/queue/nr_requests 128
+    write /sys/block/mmcblk1/queue/nr_requests 128
+
+    write /sys/block/dm-0/queue/read_ahead_kb 256
+    write /sys/block/dm-1/queue/read_ahead_kb 256
+    write /sys/block/dm-2/queue/read_ahead_kb 256
+
+    # limit background tasks to one cpu
+    write /dev/cpuset/top-app/cpus 0-1
+    write /dev/cpuset/foreground/cpus 0-1
+    write /dev/cpuset/background/cpus 0
+    write /dev/cpuset/system-background/cpus 0-1
+    write /dev/cpuset/restricted/cpus 0-1
+
+on property:sys.boot_completed=1 && property:ro.debuggable=1
+    write /dev/kmsg "BootAnalyze: boot completed"
+
+# atrace (boot systrace)
+# see https://source.android.com/devices/tech/perf/boot-times#systrace
+#     write /d/tracing/tracing_on 0
+#     write /d/tracing/events/ext4/enable 0
+#     write /d/tracing/events/f2fs/enable 0
+#     write /d/tracing/events/block/enable 0
+
+service init_driver /vendor/bin/initdriver
+    class main
+    user root
+    group root system
+    disabled
+    oneshot
+
+service init_prop /vendor/bin/initprop
+    class main
+    user root
+    group root system
+    disabled
+    oneshot
+
+# Set watchdog timer to 30 seconds and pet it every 10 seconds to get a 20 second margin
+service watchdogd /system/bin/watchdogd 10 20
+    class core
+    user root
+    oneshot
+    seclabel u:r:watchdogd:s0

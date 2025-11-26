@@ -1,0 +1,22 @@
+service console /system/bin/sh
+    class core
+    console
+    disabled
+    user root
+    group shell log readproc
+    seclabel u:r:shell:s0
+    setenv HOSTNAME console
+
+on property:ro.debuggable=1
+    start console
+
+on init
+    setprop sys.usb.controller 48300000.usb
+
+    # Hack to make sure we run the init property triggers from /etc/init/gadget.rc script
+    # instead of triggers from init.usb.rc and init.usb.configfs.rc.
+    # sys.usb.configfs = 0, Enable Android Composite gadgets from /init.usb.rc
+    # sys.usb.configfs = 1, Enable Android ConfigFS gadgets from /init.usb.configfs.rc
+    # sys.usb.configfs = 2, Enable generic Android ConfigFS gadgets
+    setprop sys.usb.configfs 1
+
