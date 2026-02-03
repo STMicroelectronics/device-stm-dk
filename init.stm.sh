@@ -77,13 +77,13 @@ insmod /vendor/lib/modules/diag.ko
 # echo "BootAnalyze: load network protocol start">>/dev/kmsg
 
 # echo "BootAnalyze: load Bluetooth start">>/dev/kmsg
-insmod /vendor/lib/modules/bluetooth.ko
-insmod /vendor/lib/modules/btsdio.ko
-insmod /vendor/lib/modules/btbcm.ko
-insmod /vendor/lib/modules/btqca.ko
-insmod /vendor/lib/modules/rfcomm.ko
-insmod /vendor/lib/modules/hidp.ko
-insmod /vendor/lib/modules/hci_uart.ko
+# insmod /vendor/lib/modules/bluetooth.ko
+# insmod /vendor/lib/modules/btsdio.ko
+# insmod /vendor/lib/modules/btbcm.ko
+# insmod /vendor/lib/modules/btqca.ko
+# insmod /vendor/lib/modules/rfcomm.ko
+# insmod /vendor/lib/modules/hidp.ko
+# insmod /vendor/lib/modules/hci_uart.ko
 # echo "BootAnalyze: load Bluetooth end">>/dev/kmsg
 
 # echo "BootAnalyze: load USB serial start">>/dev/kmsg
